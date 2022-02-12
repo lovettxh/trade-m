@@ -14,15 +14,13 @@ def l2_norm(x):
     return squared_l2_norm(x).sqrt()
 
 def hessian_cal(model, loss):
-    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True)[0]
-    hess = torch.zeros_like(g1)
-    print(g1.shape)
-    for i in range(g1.size(0)):
-        for j in range(g1.size(1)):
-            for k in range(g1.size(2)):
-                for l in range(g1.size(3)):
-                    hess[i,j,k,l] = torch.autograd.grad(g1[i][j][k][l], model.parameters(), create_graph=True)[0][i,j,k,l]
-    return hess    
+    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True, only_inputs=True)
+    temp =  [torch.ones_like(t, requires_grad=True) for t in model.parameters()]
+    s1 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1,temp)]))
+    g2 = torch.autograd.grad(s1, model.parameters(), create_graph=True, only_inputs=True)
+    #exit()
+    s2 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g2,temp)]))
+    return s2   
 
 def trades_loss(model,
                 x_natural,
@@ -81,12 +79,6 @@ def trades_loss(model,
     else:
         x_adv = torch.clamp(x_adv, 0.0, 1.0)
     
-    
-    model.train()
-    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
-    # zero gradient
-    optimizer.zero_grad()
-    # calculate robust loss
     logits = model(x_natural)
     loss_natural = F.cross_entropy(logits, y)
     loss_robust = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
@@ -95,5 +87,11 @@ def trades_loss(model,
     h = hessian_cal(model, loss_natural)
     print(h)
     #--------------------
+    model.train()
+    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+    # zero gradient
+    optimizer.zero_grad()
+    # calculate robust loss
+    
     loss = loss_natural + beta * loss_robust
     return loss
