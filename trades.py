@@ -85,7 +85,7 @@ def trades_loss(model,
                                                     F.softmax(model(x_natural), dim=1))
     #--------------------
     h = hessian_cal(model, loss_natural)
-    print(h)
+    #print(h.item())
     #--------------------
     model.train()
     x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
@@ -94,4 +94,4 @@ def trades_loss(model,
     # calculate robust loss
     
     loss = loss_natural + beta * loss_robust
-    return loss
+    return loss, h.item()

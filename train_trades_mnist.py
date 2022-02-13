@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import numpy as np
 from torchvision import datasets, transforms
 
 from models.net_mnist import *
@@ -66,13 +67,14 @@ test_loader = torch.utils.data.DataLoader(
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+    h = []
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss = trades_loss(model=model,
+        loss, temp = trades_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -80,7 +82,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta)
-
+        h.append(temp)
         loss.backward()
         optimizer.step()
 
@@ -89,6 +91,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
+    print('================================================================')
+    print('Avg Hessian: {}\n std: {} \n min: {} \n max: {}'.format(
+        np.mean(h), np.std(h), min(h), max(h)))
 
 
 def eval_train(model, device, train_loader):
