@@ -84,7 +84,7 @@ def trades_loss(model,
     loss_robust = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
                                                     F.softmax(model(x_natural), dim=1))
     #--------------------
-    h = hessian_cal(model, loss_natural)
+    h = hessian_cal(model, loss_robust)
     #print(h.item())
     #--------------------
     model.train()
@@ -94,4 +94,5 @@ def trades_loss(model,
     # calculate robust loss
     
     loss = loss_natural + beta * loss_robust
-    return loss, h.item()
+    return loss
+    #return loss, h.item()

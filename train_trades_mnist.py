@@ -63,7 +63,7 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("output.txt","a")
+#f=open("output_adv.txt","a")
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -74,7 +74,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss, temp = trades_loss(model=model,
+        loss = trades_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -82,7 +82,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta)
-        hess.append(temp)
+#        hess.append(temp)
         loss.backward()
         optimizer.step()
 
@@ -90,10 +90,10 @@ def train(args, model, device, train_loader, optimizer, epoch):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
-    print('================================================================', flush=True, file=f)
-    print('Avg Hessian: {}\n std: {} \n min: {} \n max: {}'.format(
-        np.mean(hess), np.std(hess), min(hess), max(hess)), flush=True, file=f)
+                100. * batch_idx / len(train_loader), loss.item()))
+#    print('================================================================')
+#    print('Avg Hessian: {}\n std: {} \n min: {} \n max: {}'.format(
+#        np.mean(hess), np.std(hess), min(hess), max(hess)))
 
 
 def eval_train(model, device, train_loader):
@@ -110,7 +110,7 @@ def eval_train(model, device, train_loader):
     train_loss /= len(train_loader.dataset)
     print('Training: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         train_loss, correct, len(train_loader.dataset),
-        100. * correct / len(train_loader.dataset)), flush=True, file=f)
+        100. * correct / len(train_loader.dataset)))
     training_accuracy = correct / len(train_loader.dataset)
     return train_loss, training_accuracy
 
@@ -129,7 +129,7 @@ def eval_test(model, device, test_loader):
     test_loss /= len(test_loader.dataset)
     print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)), flush=True, file=f)
+        100. * correct / len(test_loader.dataset)))
     test_accuracy = correct / len(test_loader.dataset)
     return test_loss, test_accuracy
 
@@ -160,10 +160,10 @@ def main():
         train(args, model, device, train_loader, optimizer, epoch)
 
         # evaluation on natural examples
-        print('================================================================', flush=True, file=f)
+        print('================================================================')
         eval_train(model, device, train_loader)
         eval_test(model, device, test_loader)
-        print('================================================================', flush=True, file=f)
+        print('================================================================')
 
         # save checkpoint
         if epoch % args.save_freq == 0:
