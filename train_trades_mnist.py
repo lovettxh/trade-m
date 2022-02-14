@@ -65,6 +65,8 @@ test_loader = torch.utils.data.DataLoader(
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
 #f=open("output_adv.txt","a")
 
+args.beta = 0.3
+
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
     hess = []
