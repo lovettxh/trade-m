@@ -32,22 +32,35 @@ def trades_loss(model,
                 beta=1.0,
                 distance='l_inf'):
     # define KL-loss
-    criterion_kl = nn.KLDivLoss(size_average=False)
+    #criterion_kl = nn.KLDivLoss(size_average=False)
+    criterion_ce = nn.CrossEntropyLoss()
     model.eval()
     batch_size = len(x_natural)
     # generate adversarial example
     x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
     if distance == 'l_inf':
         for _ in range(perturb_steps):
+            # x_adv.requires_grad_()
+            # with torch.enable_grad():
+            #     loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1),
+            #                            F.softmax(model(x_natural), dim=1))
+            # grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+            # x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+            # x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+            # x_adv = torch.clamp(x_adv, 0.0, 1.0)
+
+            # --------------
+            # PGD
             x_adv.requires_grad_()
             with torch.enable_grad():
-                loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1),
-                                       F.softmax(model(x_natural), dim=1))
-            grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+                loss_ce = criterion_ce(model(x_adv), y)
+            grad = torch.autograd.grad(loss_ce, [x_adv])[0]
             x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
-            x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+            x_adv = torch.clamp(x_adv, x_natural - epsilon, x_natural + epsilon)
             x_adv = torch.clamp(x_adv, 0.0, 1.0)
+
     elif distance == 'l_2':
+        print("l_2 !!!!!")
         delta = 0.001 * torch.randn(x_natural.shape).cuda().detach()
         delta = Variable(delta.data, requires_grad=True)
 
@@ -79,20 +92,24 @@ def trades_loss(model,
     else:
         x_adv = torch.clamp(x_adv, 0.0, 1.0)
     
-    logits = model(x_natural)
-    loss_natural = F.cross_entropy(logits, y)
-    loss_robust = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
-                                                    F.softmax(model(x_natural), dim=1))
-    #--------------------
-    h = hessian_cal(model, loss_robust)
-    #print(h.item())
-    #--------------------
+    
+    
     model.train()
     x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
     # zero gradient
     optimizer.zero_grad()
     # calculate robust loss
-    
+    logits = model(x_natural)
+    loss_natural = F.cross_entropy(logits, y)
+    # loss_robust = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
+    #                                                 F.softmax(model(x_natural), dim=1))
+    loss_robust = (1.0/batch_size) * criterion_ce(model(x_adv), y)
+
+    #--------------------
+    #h = hessian_cal(model, loss_robust)
+    #print(h.item())
+    #--------------------
+
     loss = loss_natural + beta * loss_robust
     return loss
     #return loss, h.item()
