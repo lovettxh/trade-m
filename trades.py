@@ -56,7 +56,7 @@ def trades_loss(model,
                 loss_ce = criterion_ce(model(x_adv), y)
             grad = torch.autograd.grad(loss_ce, [x_adv])[0]
             x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
-            x_adv = torch.clamp(x_adv, x_natural - epsilon, x_natural + epsilon)
+            x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
             x_adv = torch.clamp(x_adv, 0.0, 1.0)
 
     elif distance == 'l_2':
