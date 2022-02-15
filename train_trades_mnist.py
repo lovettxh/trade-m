@@ -157,15 +157,14 @@ def adjust_hess_thre(epoch):
     if epoch >= 15:
         args.hess_threshold = 200000
     if epoch >= 20:
-        args.hess_threshold = 150000
+        args.hess_threshold = 120000
     if epoch >= 30:
-        args.hess_threshold = 100000
-    if epoch >= 50:
         args.hess_threshold = 80000
-    if epoch >= 70:
+    if epoch >= 40:
         args.hess_threshold = 65000
-    if epoch >= 85:
+    if epoch >= 50:
         args.hess_threshold = 50000
+
 def main():
     # init model, Net() can be also used here for training
     model = SmallCNN().to(device)
