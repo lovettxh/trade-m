@@ -65,7 +65,7 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("output_hess_thres_75000.txt","a")
+f=open("output_hess_thres_adapt.txt","a")
 
 args.beta = 0.3
 
