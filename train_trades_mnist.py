@@ -151,7 +151,15 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-
+def adjust_hess_thre(epoch):
+    if epoch >= 10:
+        args.hess_threshold = 1500000
+    if epoch >= 30:
+        args.hess_threshold = 1000000
+    if epoch >= 50:
+        args.hess_threshold = 500000
+    if epoch >= 70:
+        args.hess_threshold = 75000
 def main():
     # init model, Net() can be also used here for training
     model = SmallCNN().to(device)
@@ -160,7 +168,7 @@ def main():
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
-
+        adjust_hess_thre(epoch)
         # adversarial training
         train(args, model, device, train_loader, optimizer, epoch)
 
