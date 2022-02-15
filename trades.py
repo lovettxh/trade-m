@@ -30,6 +30,7 @@ def trades_loss(model,
                 epsilon=0.031,
                 perturb_steps=10,
                 beta=1.0,
+                hess_threshold=65000,
                 distance='l_inf'):
     # define KL-loss
     criterion_kl = nn.KLDivLoss(size_average=False)
@@ -109,7 +110,9 @@ def trades_loss(model,
     h = hessian_cal(model, loss_robust)
     #print(h.item())
     #--------------------
-
-    loss = loss_natural + beta * loss_robust
-    # return loss
-    return loss, h.item()
+    if(h <= hess_threshold):
+        loss = loss_natural + beta * loss_robust
+    else:
+        loss = loss_natural
+    return loss
+    # return loss, h.item()
