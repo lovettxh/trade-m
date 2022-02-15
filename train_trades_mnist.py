@@ -42,7 +42,7 @@ parser.add_argument('--model-dir', default='./model-mnist-smallCNN',
                     help='directory of model for saving checkpoint')
 parser.add_argument('--save-freq', '-s', default=5, type=int, metavar='N',
                     help='save frequency')
-parser.add_argument('--hess-threshold', default=65000,
+parser.add_argument('--hess-threshold', default=75000,
                     help='hessian threshold')
 args = parser.parse_args()
 
@@ -65,7 +65,7 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("output_hess_thres_65000.txt","a")
+f=open("output_hess_thres_75000.txt","a")
 
 args.beta = 0.3
 
@@ -78,7 +78,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss = trades_loss(model=model,
+        loss, temp = trades_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -87,7 +87,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                            perturb_steps=args.num_steps,
                            beta=args.beta,
                            hess_threshold=args.hess_threshold)
-        # hess.append(temp)
+        hess.append(temp)
         loss.backward()
         optimizer.step()
 
@@ -96,9 +96,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
-    # print('================================================================', flush=True, file=f)
-    # print('Avg Hessian: {}\n std: {} \n min: {} \n max: {}'.format(
-    #    np.mean(hess), np.std(hess), min(hess), max(hess)), flush=True, file=f)
+    print('================================================================', flush=True, file=f)
+    print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
+       np.mean(hess), np.std(hess), np.median(hess), min(hess), max(hess)), flush=True, file=f)
 
 
 def eval_train(model, device, train_loader):
