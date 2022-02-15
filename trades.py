@@ -106,10 +106,10 @@ def trades_loss(model,
     loss_robust = (1.0/batch_size) * criterion_ce(model(x_adv), y)
 
     #--------------------
-    #h = hessian_cal(model, loss_robust)
+    h = hessian_cal(model, loss_robust)
     #print(h.item())
     #--------------------
 
     loss = loss_natural + beta * loss_robust
-    return loss
-    #return loss, h.item()
+    # return loss
+    return loss, h.item()
