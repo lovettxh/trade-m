@@ -14,7 +14,7 @@ def l2_norm(x):
     return squared_l2_norm(x).sqrt()
 
 def hessian_cal(model, loss):
-    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True, only_inputs=True, allow_unused=True)
+    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True, only_inputs=True)
     temp =  [torch.ones_like(t, requires_grad=True) for t in model.parameters()]
     s1 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1,temp)]))
     g2 = torch.autograd.grad(s1, model.parameters(), create_graph=True, only_inputs=True)

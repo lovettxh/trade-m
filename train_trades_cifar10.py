@@ -8,7 +8,7 @@ import torchvision
 import torch.optim as optim
 from torchvision import datasets, transforms
 import numpy as np
-from models.wideresnet import *
+from models.wideresnet_update import *
 from models.resnet import *
 from trades import trades_loss
 
@@ -45,6 +45,7 @@ parser.add_argument('--save-freq', '-s', default=1, type=int, metavar='N',
                     help='save frequency')
 parser.add_argument('--hess-threshold', default=75000,
                     help='hessian threshold')
+parser.add_argument("--local_rank", type=int)
 args = parser.parse_args()
 
 # settings
@@ -57,6 +58,10 @@ device = torch.device("cuda" if use_cuda else "cpu")
 kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 torch.backends.cudnn.benchmark = True
+#torch.cuda.set_device(args.local_rank)
+#torch.distributed.init_process_group(backend='nccl')
+args.batch_size = 32
+args.test_batch_size = 32
 
 # setup data loader
 transform_train = transforms.Compose([
@@ -173,6 +178,7 @@ def adjust_hess_thre(epoch):
 def main():
     # init model, ResNet18() can be also used here for training
     model = WideResNet().to(device)
+    #model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
 
     for epoch in range(1, args.epochs + 1):
