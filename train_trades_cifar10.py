@@ -77,13 +77,14 @@ test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_si
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+    hess = []
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss = trades_loss(model=model,
+        loss, temp = trades_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -91,6 +92,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta)
+        hess.append(temp)
         loss.backward()
         optimizer.step()
 

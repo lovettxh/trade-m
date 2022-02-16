@@ -10,7 +10,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from models.small_cnn import *
 from models.net_mnist import *
-
+from autoattack import AutoAttack
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST PGD Attack Evaluation')
 parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
@@ -37,7 +37,8 @@ parser.add_argument('--target-model-path',
                     help='target model for black-box attack evaluation')
 parser.add_argument('--white-box-attack', default=True,
                     help='whether perform white-box attack')
-
+parser.add_argument('--log-path',default='./log_file.txt')
+parser.add_argument('--auto-attack',default=False)
 args = parser.parse_args()
 
 # settings
@@ -112,6 +113,26 @@ def _pgd_blackbox(model_target,
     print('err pgd black-box: ', err_pgd)
     return err, err_pgd
 
+def eval_avd_test_autoattack(model, device, test_loader):
+    model.eval()
+    adversary = AutoAttack(model, norm='Linf', eps=args.epsilon, log_path=args.log_path,version='standard')
+    
+    robust_err_total = 0
+    natural_err_total = 0
+    
+    l = [x for (x, y) in test_loader]
+    x_test = torch.cat(l, 0)
+    l = [y for (x, y) in test_loader]
+    y_test = torch.cat(l, 0)
+    with torch.no_grad():
+        if not args.individual:
+            adv_complete = adversary.run_standard_evaluation(x_test[:10000], y_test[:10000],
+                bs=args.test_batch_size)
+            
+            torch.save({'adv_complete': adv_complete}, '{}/{}_{}_1_{}_eps_{:.5f}.pth'.format(
+                args.save_dir, 'aa', args.version, adv_complete.shape[0], args.epsilon))
+
+
 
 def eval_adv_test_whitebox(model, device, test_loader):
     """
@@ -155,6 +176,11 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 def main():
     print(len(test_loader.dataset))
     # args.white_box_attack = False
+    if args.auto_attack:
+        print('auto attack')
+        model = SmallCNN().to(device)
+        model.load_state_dict(torch.load(args.model_path))
+        eval_avd_test_autoattack(model,device, test_loader)
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
