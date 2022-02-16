@@ -71,7 +71,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifa10-output/output.txt","a")
+f=open("./cifar10-output/output.txt","a")
 args.beta = 0.5
 
 def train(args, model, device, train_loader, optimizer, epoch):
