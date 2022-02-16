@@ -125,12 +125,11 @@ def eval_avd_test_autoattack(model, device, test_loader):
     l = [y for (x, y) in test_loader]
     y_test = torch.cat(l, 0)
     with torch.no_grad():
-        if not args.individual:
-            adv_complete = adversary.run_standard_evaluation(x_test[:10000], y_test[:10000],
-                bs=args.test_batch_size)
+        
+        adv_complete = adversary.run_standard_evaluation(x_test[:10000], y_test[:10000],
+          bs=args.test_batch_size)
             
-            torch.save({'adv_complete': adv_complete}, '{}/{}_{}_1_{}_eps_{:.5f}.pth'.format(
-                args.save_dir, 'aa', args.version, adv_complete.shape[0], args.epsilon))
+        torch.save({'adv_complete': adv_complete})
 
 
 
@@ -176,12 +175,13 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 def main():
     print(len(test_loader.dataset))
     # args.white_box_attack = False
+    args.auto_attack = True
     if args.auto_attack:
         print('auto attack')
         model = SmallCNN().to(device)
         model.load_state_dict(torch.load(args.model_path))
         eval_avd_test_autoattack(model,device, test_loader)
-    if args.white_box_attack:
+    elif args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
         model = SmallCNN().to(device)
