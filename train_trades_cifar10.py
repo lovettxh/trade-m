@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 from torchvision import datasets, transforms
-
+import numpy as np
 from models.wideresnet import *
 from models.resnet import *
 from trades import trades_loss
@@ -43,7 +43,8 @@ parser.add_argument('--model-dir', default='./model-cifar-wideResNet',
                     help='directory of model for saving checkpoint')
 parser.add_argument('--save-freq', '-s', default=1, type=int, metavar='N',
                     help='save frequency')
-
+parser.add_argument('--hess-threshold', default=75000,
+                    help='hessian threshold')
 args = parser.parse_args()
 
 # settings
@@ -73,7 +74,8 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-
+f=open("./cifa10-output/output.txt","a")
+args.beta = 0.3
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
@@ -91,7 +93,9 @@ def train(args, model, device, train_loader, optimizer, epoch):
                            step_size=args.step_size,
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
-                           beta=args.beta)
+                           beta=args.beta,
+                           hess_threshold=args.hess_threshold,
+                           eval=True)
         hess.append(temp)
         loss.backward()
         optimizer.step()
@@ -100,8 +104,10 @@ def train(args, model, device, train_loader, optimizer, epoch):
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                       100. * batch_idx / len(train_loader), loss.item()))
-
+                       100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
+    print('================================================================', flush=True, file=f)
+    print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
+       np.mean(hess), np.std(hess), np.median(hess), min(hess), max(hess)), flush=True, file=f)
 
 def eval_train(model, device, train_loader):
     model.eval()
@@ -117,7 +123,7 @@ def eval_train(model, device, train_loader):
     train_loss /= len(train_loader.dataset)
     print('Training: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         train_loss, correct, len(train_loader.dataset),
-        100. * correct / len(train_loader.dataset)))
+        100. * correct / len(train_loader.dataset)), flush=True, file=f)
     training_accuracy = correct / len(train_loader.dataset)
     return train_loss, training_accuracy
 
@@ -136,7 +142,7 @@ def eval_test(model, device, test_loader):
     test_loss /= len(test_loader.dataset)
     print('Test: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)'.format(
         test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        100. * correct / len(test_loader.dataset)), flush=True, file=f)
     test_accuracy = correct / len(test_loader.dataset)
     return test_loss, test_accuracy
 
@@ -153,6 +159,19 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
+def adjust_hess_thre(epoch):
+    if epoch >= 10:
+        args.hess_threshold = 2000000
+    if epoch >= 15:
+        args.hess_threshold = 200000
+    if epoch >= 20:
+        args.hess_threshold = 120000
+    if epoch >= 30:
+        args.hess_threshold = 100000
+    if epoch >= 40:
+        args.hess_threshold = 80000
+    if epoch >= 50:
+        args.hess_threshold = 65000
 
 def main():
     # init model, ResNet18() can be also used here for training
@@ -162,15 +181,15 @@ def main():
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
-
+        adjust_hess_thre(epoch)
         # adversarial training
         train(args, model, device, train_loader, optimizer, epoch)
 
         # evaluation on natural examples
-        print('================================================================')
+        print('================================================================', flush=True, file=f)
         eval_train(model, device, train_loader)
         eval_test(model, device, test_loader)
-        print('================================================================')
+        print('================================================================', flush=True, file=f)
 
         # save checkpoint
         if epoch % args.save_freq == 0:
