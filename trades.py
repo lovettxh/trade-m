@@ -9,16 +9,18 @@ def squared_l2_norm(x):
     flattened = x.view(x.unsqueeze(0).shape[0], -1)
     return (flattened ** 2).sum(1)
 
-
 def l2_norm(x):
     return squared_l2_norm(x).sqrt()
 
+
+def model_para_count(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def hessian_cal(model, loss):
-    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True, only_inputs=True, allow_unused=True)
+    g1 = torch.autograd.grad(loss, model.parameters(), create_graph=True, only_inputs=True)
     temp =  [torch.ones_like(t, requires_grad=True) for t in model.parameters()]
     s1 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1,temp)]))
     g2 = torch.autograd.grad(s1, model.parameters(), create_graph=True, only_inputs=True)
-    #exit()
     s2 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g2,temp)]))
     return s2   
 

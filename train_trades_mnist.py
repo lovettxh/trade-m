@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 
 from models.net_mnist import *
 from models.small_cnn import *
-from trades import trades_loss
+from trades import trades_loss, model_para_count
 
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST TRADES Adversarial Training')
@@ -69,7 +69,7 @@ f=open("output_hess_thres_adapt3.txt","a")
 
 args.beta = 0.7
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
     hess = []
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -98,7 +98,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
                 100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
     print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
-       np.mean(hess), np.std(hess), np.median(hess), min(hess), max(hess)), flush=True, file=f)
+       np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
+       min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
 
 
 def eval_train(model, device, train_loader):
@@ -165,17 +166,20 @@ def adjust_hess_thre(epoch):
     if epoch >= 50:
         args.hess_threshold = 65000
 
+
+
 def main():
     # init model, Net() can be also used here for training
     model = SmallCNN().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
-
+    para_count = model_para_count(model)
+    print(para_count)
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
         adjust_hess_thre(epoch)
         # adversarial training
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(args, model, device, train_loader, optimizer, epoch, para_count)
 
         # evaluation on natural examples
         print('================================================================', flush=True, file=f)

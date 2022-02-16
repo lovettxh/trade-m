@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 import numpy as np
 from models.wideresnet import *
 from models.resnet import *
-from trades import trades_loss
+from trades import trades_loss, model_para_count
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -58,6 +58,9 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 torch.backends.cudnn.benchmark = True
 
+args.batch_size = 48
+args.test_batch_size = 48
+
 # setup data loader
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
@@ -74,7 +77,7 @@ test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_si
 f=open("./cifar10-output/output.txt","a")
 args.beta = 0.5
 
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
     hess = []
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -104,7 +107,8 @@ def train(args, model, device, train_loader, optimizer, epoch):
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
     print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
-       np.mean(hess), np.std(hess), np.median(hess), min(hess), max(hess)), flush=True, file=f)
+       np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
+       min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
 
 def eval_train(model, device, train_loader):
     model.eval()
@@ -174,13 +178,14 @@ def main():
     # init model, ResNet18() can be also used here for training
     model = WideResNet().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
-
+    para_count = model_para_count(model)
+    print(para_count, flush=True, file=f)
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
         adjust_hess_thre(epoch)
         # adversarial training
-        train(args, model, device, train_loader, optimizer, epoch)
+        train(args, model, device, train_loader, optimizer, epoch, para_count)
 
         # evaluation on natural examples
         print('================================================================', flush=True, file=f)
