@@ -44,6 +44,8 @@ parser.add_argument('--save-freq', '-s', default=5, type=int, metavar='N',
                     help='save frequency')
 parser.add_argument('--hess-threshold', default=75000,
                     help='hessian threshold')
+parser.add_argument('--start-epoch', default=15)
+parser.add_argument('--end-epoch', default=75)
 args = parser.parse_args()
 
 # settings
@@ -100,7 +102,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
     print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
        np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
        min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
-
+    return np.mean(hess)
 
 def eval_train(model, device, train_loader):
     model.eval()
@@ -152,20 +154,11 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def adjust_hess_thre(epoch):
-    if epoch >= 10:
-        args.hess_threshold = 2500000
-    if epoch >= 15:
-        args.hess_threshold = 300000
-    if epoch >= 20:
-        args.hess_threshold = 150000
-    if epoch >= 30:
-        args.hess_threshold = 100000
-    if epoch >= 40:
-        args.hess_threshold = 80000
-    if epoch >= 50:
-        args.hess_threshold = 65000
-
+def adjust_hess_thre(epoch, avg_hess):
+    if epoch >= args.start_epoch:
+        args.hess_threshold = avg_hess
+    if epoch >= args.end_epoch:
+        args.hess_threshold = avg_hess * 1.25
 
 
 def main():
@@ -177,10 +170,10 @@ def main():
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
-        adjust_hess_thre(epoch)
+        
         # adversarial training
-        train(args, model, device, train_loader, optimizer, epoch, para_count)
-
+        avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
+        adjust_hess_thre(epoch, avg)
         # evaluation on natural examples
         print('================================================================', flush=True, file=f)
         eval_train(model, device, train_loader)
