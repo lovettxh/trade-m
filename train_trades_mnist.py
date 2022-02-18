@@ -69,7 +69,7 @@ test_loader = torch.utils.data.DataLoader(
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
 f=open("./mnist-output/output_hess_thres_adapt_abs.txt","a")
 
-args.beta = 0.5
+args.beta = 0.7
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
