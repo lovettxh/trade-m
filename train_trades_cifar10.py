@@ -8,7 +8,7 @@ import torchvision
 import torch.optim as optim
 from torchvision import datasets, transforms
 import numpy as np
-from models.wideresnet import *
+from models.wideresnet_update import *
 from models.resnet import *
 from trades import trades_loss, model_para_count
 
@@ -58,8 +58,8 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 torch.backends.cudnn.benchmark = True
 
-args.batch_size = 48
-args.test_batch_size = 48
+args.batch_size = 64
+args.test_batch_size = 64
 
 # setup data loader
 transform_train = transforms.Compose([
@@ -74,7 +74,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/output.txt","a")
+f=open("./cifar10-output/output_vanilla.txt","a")
 args.beta = 0.5
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):

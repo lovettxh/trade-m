@@ -8,7 +8,7 @@ import torchvision
 from torch.autograd import Variable
 import torch.optim as optim
 from torchvision import datasets, transforms
-from models.wideresnet import *
+from models.wideresnet_update import *
 from models.resnet import *
 
 
@@ -153,7 +153,7 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 
 
 def main():
-
+    print(len(testset))
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')

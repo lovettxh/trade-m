@@ -21,6 +21,7 @@ def hessian_cal(model, loss):
     temp =  [torch.ones_like(t, requires_grad=True) for t in model.parameters()]
     s1 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1,temp)]))
     g2 = torch.autograd.grad(s1, model.parameters(), create_graph=True, only_inputs=True)
+    g2 = [torch.abs(x) for x in g2]
     s2 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g2,temp)]))
     return s2   
 
@@ -112,9 +113,9 @@ def trades_loss(model,
     #--------------------
     h = hessian_cal(model, loss_robust)
     #--------------------
-    if(h <= hess_threshold or eval):
-        loss = loss_natural + beta * loss_robust
-    else:
-        loss = loss_natural
+    #if(h <= hess_threshold or eval):
+    loss = loss_natural + beta * loss_robust
+    #else:
+    #loss = loss_natural
     # return loss
     return loss, h.item()
