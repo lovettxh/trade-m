@@ -65,9 +65,9 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("output_hess_thres_adapt_abs.txt","a")
+f=open("./mnist-output/output_hess_thres_adapt_abs.txt","a")
 
-args.beta = 0.3
+args.beta = 0.5
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -154,11 +154,11 @@ def adjust_learning_rate(optimizer, epoch):
 
 def adjust_hess_thre(epoch):
     if epoch >= 10:
-        args.hess_threshold = 2000000
+        args.hess_threshold = 2500000
     if epoch >= 15:
-        args.hess_threshold = 200000
+        args.hess_threshold = 300000
     if epoch >= 20:
-        args.hess_threshold = 120000
+        args.hess_threshold = 150000
     if epoch >= 30:
         args.hess_threshold = 100000
     if epoch >= 40:

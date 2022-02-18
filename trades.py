@@ -113,9 +113,9 @@ def trades_loss(model,
     #--------------------
     h = hessian_cal(model, loss_robust)
     #--------------------
-    #if(h <= hess_threshold or eval):
-    loss = loss_natural + beta * loss_robust
-    #else:
-    #loss = loss_natural
+    if(h <= hess_threshold or eval):
+        loss = loss_natural + beta * loss_robust
+    else:
+        loss = loss_natural
     # return loss
     return loss, h.item()
