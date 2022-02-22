@@ -46,6 +46,8 @@ parser.add_argument('--save-freq', '-s', default=1, type=int, metavar='N',
 parser.add_argument('--hess-threshold', default=75000,
                     help='hessian threshold')
 parser.add_argument("--local_rank", type=int)
+parser.add_argument('--start-epoch', default=10)
+parser.add_argument('--end-epoch', default=60)
 args = parser.parse_args()
 
 # settings
@@ -60,9 +62,6 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 torch.backends.cudnn.benchmark = True
 #torch.cuda.set_device(args.local_rank)
 #torch.distributed.init_process_group(backend='nccl')
-args.batch_size = 32
-args.test_batch_size = 32
-
 args.batch_size = 64
 args.test_batch_size = 64
 
@@ -79,8 +78,8 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/output_vanilla.txt","a")
-args.beta = 0.5
+f=open("./cifar10-output/output_hess_beta7.txt","a")
+args.beta = 0.7
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -99,8 +98,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta,
-                           hess_threshold=args.hess_threshold,
-                           eval=True)
+                           hess_threshold=args.hess_threshold)
         hess.append(temp)
         loss.backward()
         optimizer.step()
@@ -114,7 +112,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
     print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
        np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
        min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
-
+    return np.mean(hess)
 def eval_train(model, device, train_loader):
     model.eval()
     train_loss = 0
@@ -165,34 +163,29 @@ def adjust_learning_rate(optimizer, epoch):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
-def adjust_hess_thre(epoch):
-    if epoch >= 10:
-        args.hess_threshold = 2000000
-    if epoch >= 15:
-        args.hess_threshold = 200000
-    if epoch >= 20:
-        args.hess_threshold = 120000
-    if epoch >= 30:
-        args.hess_threshold = 100000
-    if epoch >= 40:
-        args.hess_threshold = 80000
-    if epoch >= 50:
-        args.hess_threshold = 65000
+def adjust_hess_thre(epoch, avg_hess):
+    if epoch >= args.start_epoch:
+        args.hess_threshold = avg_hess
+    if epoch >= args.end_epoch:
+        args.hess_threshold = avg_hess * 1.25
 
 def main():
     # init model, ResNet18() can be also used here for training
     model = WideResNet().to(device)
     #model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+    hess_list = []
     para_count = model_para_count(model)
     print(para_count, flush=True, file=f)
     for epoch in range(1, args.epochs + 1):
         # adjust learning rate for SGD
         adjust_learning_rate(optimizer, epoch)
-        adjust_hess_thre(epoch)
         # adversarial training
-        train(args, model, device, train_loader, optimizer, epoch, para_count)
-
+        avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
+        hess_list.append(avg)
+        if(len(hess_list) > 4):
+            hess_list.pop(0)
+        adjust_hess_thre(epoch, np.mean(hess_list))
         # evaluation on natural examples
         print('================================================================', flush=True, file=f)
         eval_train(model, device, train_loader)
