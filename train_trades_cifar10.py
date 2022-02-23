@@ -43,7 +43,7 @@ parser.add_argument('--model-dir', default='./model-cifar-wideResNet',
                     help='directory of model for saving checkpoint')
 parser.add_argument('--save-freq', '-s', default=1, type=int, metavar='N',
                     help='save frequency')
-parser.add_argument('--hess-threshold', default=75000,
+parser.add_argument('--hess-threshold', default=0,
                     help='hessian threshold')
 parser.add_argument("--local_rank", type=int)
 parser.add_argument('--start-epoch', default=10)
@@ -78,7 +78,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/output_hess_beta7.txt","a")
+f=open("./cifar10-output/output_natural.txt","a")
 args.beta = 0.7
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
@@ -98,7 +98,8 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta,
-                           hess_threshold=args.hess_threshold)
+                           hess_threshold=args.hess_threshold,
+                           evalu= True)
         hess.append(temp)
         loss.backward()
         optimizer.step()
