@@ -84,13 +84,14 @@ args.beta = 0.7
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
     hess = []
+    grad = []
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss, temp = trades_loss(model=model,
+        loss, temp, temp1 = trades_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -101,15 +102,17 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            hess_threshold=args.hess_threshold,
                            evalu= True)
         hess.append(temp)
+        grad.append(temp1)
         loss.backward()
         optimizer.step()
-
+        
         # print progress
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
+    print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
     print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
        np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
        min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
@@ -166,9 +169,9 @@ def adjust_learning_rate(optimizer, epoch):
 
 def adjust_hess_thre(epoch, avg_hess):
     if epoch >= args.start_epoch:
-        args.hess_threshold = avg_hess
+        args.hess_threshold = avg_hess * 1.5
     if epoch >= args.end_epoch:
-        args.hess_threshold = avg_hess * 1.25
+        args.hess_threshold = avg_hess * 2
 
 def main():
     # init model, ResNet18() can be also used here for training
