@@ -23,7 +23,9 @@ def hessian_cal(model, loss):
     g2 = torch.autograd.grad(s1, model.parameters(), create_graph=True, only_inputs=True)
     g2 = [torch.abs(x) for x in g2]
     s2 = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g2,temp)]))
-    return s2, s1 
+    g1_= [torch.abs(x) for x in g1]
+    grad = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1_,temp)]))
+    return s2, grad 
 
 def trades_loss(model,
                 x_natural,
