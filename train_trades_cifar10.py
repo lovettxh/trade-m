@@ -78,8 +78,8 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/output_natural.txt","a")
-args.beta = 0.7
+f=open("./cifar10-output/output_hess13.txt","a")
+args.beta = 1.3
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -100,7 +100,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            perturb_steps=args.num_steps,
                            beta=args.beta,
                            hess_threshold=args.hess_threshold,
-                           evalu= True)
+                           evalu= False)
         hess.append(temp)
         grad.append(temp1)
         loss.backward()

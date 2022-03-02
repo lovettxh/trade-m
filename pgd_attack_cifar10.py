@@ -154,6 +154,7 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 
 def main():
     print(len(testset))
+    #args.white_box_attack = False
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
