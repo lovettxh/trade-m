@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 import numpy as np
 from models.wideresnet_update import *
 from models.resnet import *
-from trades import trades_loss, model_para_count
+from trades import trades_loss, model_para_count, diff_loss
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -91,7 +91,17 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss, temp, temp1 = trades_loss(model=model,
+        # loss, temp, temp1 = trades_loss(model=model,
+        #                    x_natural=data,
+        #                    y=target,
+        #                    optimizer=optimizer,
+        #                    step_size=args.step_size,
+        #                    epsilon=args.epsilon,
+        #                    perturb_steps=args.num_steps,
+        #                    beta=args.beta,
+        #                    hess_threshold=args.hess_threshold,
+        #                    evalu= False)
+        loss, temp, temp1 = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
