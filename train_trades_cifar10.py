@@ -62,8 +62,8 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 torch.backends.cudnn.benchmark = True
 #torch.cuda.set_device(args.local_rank)
 #torch.distributed.init_process_group(backend='nccl')
-args.batch_size = 64
-args.test_batch_size = 64
+args.batch_size = 16
+args.test_batch_size = 16
 
 # setup data loader
 transform_train = transforms.Compose([
