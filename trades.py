@@ -162,7 +162,7 @@ def diff_loss(model,
     loss_robust = (1.0/batch_size) * criterion_ce(model(x_adv), y)
     pred = logits.max(1, keepdim=True)[1]
     correct = pred.eq(y.view_as(pred)).sum().item()
-    print(y.shape)
+    print(correct)
     #--------------------
     h, g = hessian_cal(model, loss_robust)
     #--------------------
