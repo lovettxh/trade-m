@@ -121,3 +121,55 @@ def trades_loss(model,
         loss = loss_natural
     # return loss
     return loss, h.item(), g.item()
+
+
+
+def diff_loss(model,
+                x_natural,
+                y,
+                optimizer,
+                step_size=0.003,
+                epsilon=0.031,
+                perturb_steps=10,
+                beta=1.0,
+                hess_threshold=75000,
+                distance='l_inf',
+                evalu=False):
+    criterion_kl = nn.KLDivLoss(size_average=False)
+    criterion_ce = nn.CrossEntropyLoss(size_average=False)
+    model.eval()
+    batch_size = len(x_natural)
+    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+    
+    for _ in range(perturb_steps):
+        # --------------
+        # PGD
+        x_adv.requires_grad_()
+        with torch.enable_grad():
+            loss_ce = criterion_ce(model(x_adv), y)
+        grad = torch.autograd.grad(loss_ce, [x_adv])[0]
+        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+
+    model.train()
+    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+    # zero gradient
+    optimizer.zero_grad()
+    # calculate robust loss
+    logits = model(x_natural)
+    loss_natural = F.cross_entropy(logits, y)
+    loss_robust = (1.0/batch_size) * criterion_ce(model(x_adv), y)
+    pred = logits.max(1, keepdim=True)[1]
+    correct = pred.eq(y.view_as(pred)).sum().item()
+    print(y.shape)
+    #--------------------
+    h, g = hessian_cal(model, loss_robust)
+    #--------------------
+
+    if(h <= hess_threshold or evalu):
+        loss = loss_natural + beta * loss_robust
+    else:
+        loss = loss_natural
+    # return loss
+    return loss, h.item(), g.item()
