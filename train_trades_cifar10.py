@@ -1,5 +1,6 @@
 from __future__ import print_function
 import os
+import sys
 import argparse
 import torch
 import torch.nn as nn
@@ -189,29 +190,56 @@ def main():
     #model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     hess_list = []
-    para_count = model_para_count(model)
-    print(para_count, flush=True, file=f)
-    for epoch in range(1, args.epochs + 1):
-        # adjust learning rate for SGD
-        adjust_learning_rate(optimizer, epoch)
-        # adversarial training
-        avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
-        hess_list.append(avg)
-        if(len(hess_list) > 4):
-            hess_list.pop(0)
-        adjust_hess_thre(epoch, np.mean(hess_list))
-        # evaluation on natural examples
-        print('================================================================', flush=True, file=f)
-        eval_train(model, device, train_loader)
-        eval_test(model, device, test_loader)
-        print('================================================================', flush=True, file=f)
+    if len(sys.argv) == 3:
+        start = int(sys.argv[1])
+        length = int(sys.argv[2])
+        model_path = "./model-cifar-wideResNet/model-wideres-epoch"+ str(start) +".pt"
+        optimizer_path = "./model-cifar-wideResNet/opt-wideres-checkpoint_epoch" + str(start) + ".tar"
+        model.load_state_dict(torch.load(model_path))
+        optimizer.load_state_dict(torch.load(optimizer_path))
+        print("load complete")
+        for epoch in range(start+1, length+start+1):
+            adjust_learning_rate(optimizer, epoch)
+            avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
+            hess_list.append(avg)
+            if(len(hess_list) > 4):
+                hess_list.pop(0)
+            adjust_hess_thre(epoch, np.mean(hess_list))
+            # evaluation on natural examples
+            print('================================================================', flush=True, file=f)
+            eval_train(model, device, train_loader)
+            eval_test(model, device, test_loader)
+            print('================================================================', flush=True, file=f)
+            # save checkpoint
+            if epoch % args.save_freq == 0:
+                torch.save(model.state_dict(),
+                        os.path.join(model_dir, 'model-wideres-epoch{}.pt'.format(epoch)))
+                torch.save(optimizer.state_dict(),
+                        os.path.join(model_dir, 'opt-wideres-checkpoint_epoch{}.tar'.format(epoch)))
+    else:
+        para_count = model_para_count(model)
+        print(para_count, flush=True, file=f)
+        for epoch in range(1, args.epochs + 1):
+            # adjust learning rate for SGD
+            adjust_learning_rate(optimizer, epoch)
+            # adversarial training
+            avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
+            hess_list.append(avg)
+            if(len(hess_list) > 4):
+                hess_list.pop(0)
+            adjust_hess_thre(epoch, np.mean(hess_list))
+            # evaluation on natural examples
+            print('================================================================', flush=True, file=f)
+            eval_train(model, device, train_loader)
+            eval_test(model, device, test_loader)
+            print('================================================================', flush=True, file=f)
 
-        # save checkpoint
-        if epoch % args.save_freq == 0:
-            torch.save(model.state_dict(),
-                       os.path.join(model_dir, 'model-wideres-epoch{}.pt'.format(epoch)))
-            torch.save(optimizer.state_dict(),
-                       os.path.join(model_dir, 'opt-wideres-checkpoint_epoch{}.tar'.format(epoch)))
+            # save checkpoint
+            if epoch % args.save_freq == 0:
+                torch.save(model.state_dict(),
+                        os.path.join(model_dir, 'model-wideres-epoch{}.pt'.format(epoch)))
+                torch.save(optimizer.state_dict(),
+                        os.path.join(model_dir, 'opt-wideres-checkpoint_epoch{}.tar'.format(epoch)))
 
 
 if __name__ == '__main__':
