@@ -49,6 +49,8 @@ parser.add_argument('--hess-threshold', default=0,
 parser.add_argument("--local_rank", type=int)
 parser.add_argument('--start-epoch', default=10)
 parser.add_argument('--end-epoch', default=60)
+parser.add_argument('--continue-train',default=0, type=int)
+parser.add_argument('--continue-train-len',default=0, type=int)
 args = parser.parse_args()
 
 # settings
@@ -190,9 +192,9 @@ def main():
     #model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     hess_list = []
-    if len(sys.argv) == 3:
-        start = int(sys.argv[1])
-        length = int(sys.argv[2])
+    if args.continue_train != 0:
+        start = args.continue_train
+        length = args.continue_train_len
         model_path = "./model-cifar-wideResNet/model-wideres-epoch"+ str(start) +".pt"
         optimizer_path = "./model-cifar-wideResNet/opt-wideres-checkpoint_epoch" + str(start) + ".tar"
         model.load_state_dict(torch.load(model_path))
