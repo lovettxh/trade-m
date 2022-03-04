@@ -17,7 +17,7 @@ parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
                     help='input batch size for testing (default: 128)')
-parser.add_argument('--epochs', type=int, default=76, metavar='N',
+parser.add_argument('--epochs', type=int, default=85, metavar='N',
                     help='number of epochs to train')
 parser.add_argument('--weight-decay', '--wd', default=2e-4,
                     type=float, metavar='W')
@@ -37,7 +37,7 @@ parser.add_argument('--beta', default=6.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=100, metavar='N',
+parser.add_argument('--log-interval', type=int, default=200, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--model-dir', default='./model-cifar-wideResNet',
                     help='directory of model for saving checkpoint')
@@ -62,8 +62,8 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 torch.backends.cudnn.benchmark = True
 #torch.cuda.set_device(args.local_rank)
 #torch.distributed.init_process_group(backend='nccl')
-args.batch_size = 16
-args.test_batch_size = 16
+args.batch_size = 32
+args.test_batch_size = 32
 
 # setup data loader
 transform_train = transforms.Compose([
@@ -78,7 +78,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/test.txt","a")
+f=open("./cifar10-output/test1.txt","a")
 args.beta = 1.3
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):

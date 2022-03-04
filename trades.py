@@ -165,7 +165,7 @@ def diff_loss(model,
     h, g = hessian_cal(model, loss_robust)
     #--------------------
 
-    if(correct >= batch_size * 0.85):
+    if(correct >= batch_size * 0.8):
         loss = loss_natural + beta * loss_robust
     else:
         loss = loss_natural
