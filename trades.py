@@ -132,7 +132,8 @@ def diff_loss(model,
                 epsilon=0.031,
                 perturb_steps=10,
                 beta=1.0,
-                hess_threshold=75000, 
+                hess_threshold=75000,
+                correct_rate=0.8,
                 evalu=False):
     criterion_kl = nn.KLDivLoss(size_average=False)
     criterion_ce = nn.CrossEntropyLoss(size_average=False)
@@ -162,12 +163,14 @@ def diff_loss(model,
     pred = logits.max(1, keepdim=True)[1]
     correct = pred.eq(y.view_as(pred)).sum().item()
     #--------------------
-    h, g = hessian_cal(model, loss_robust)
+    #h, g = hessian_cal(model, loss_robust)
     #--------------------
-
-    if(correct >= batch_size * 0.8):
+    
+    if(correct >= batch_size * correct_rate):
         loss = loss_natural + beta * loss_robust
+        return loss, True
     else:
         loss = loss_natural
-    # return loss
-    return loss, h.item(), g.item()
+        return loss, False
+    
+    #return loss, h.item(), g.item()

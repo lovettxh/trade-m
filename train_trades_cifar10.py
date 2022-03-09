@@ -38,7 +38,7 @@ parser.add_argument('--beta', default=6.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=200, metavar='N',
+parser.add_argument('--log-interval', type=int, default=100, metavar='N',
                     help='how many batches to wait before logging training status')
 parser.add_argument('--model-dir', default='./model-cifar-wideResNet',
                     help='directory of model for saving checkpoint')
@@ -51,6 +51,7 @@ parser.add_argument('--start-epoch', default=10)
 parser.add_argument('--end-epoch', default=60)
 parser.add_argument('--continue-train',default=0, type=int)
 parser.add_argument('--continue-train-len',default=0, type=int)
+parser.add_argument('--correct',default=0.8, type=float)
 args = parser.parse_args()
 
 # settings
@@ -65,9 +66,9 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 torch.backends.cudnn.benchmark = True
 #torch.cuda.set_device(args.local_rank)
 #torch.distributed.init_process_group(backend='nccl')
-args.batch_size = 32
-args.test_batch_size = 32
-
+args.batch_size = 128
+args.test_batch_size = 128
+args.correct = 0.85
 # setup data loader
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
@@ -81,13 +82,14 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/test1.txt","a")
-args.beta = 1.3
+f=open("./cifar10-output/output_diff85_beta2.txt","a")
+args.beta = 2
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
     hess = []
     grad = []
+    count = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
@@ -104,7 +106,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         #                    beta=args.beta,
         #                    hess_threshold=args.hess_threshold,
         #                    evalu= False)
-        loss, temp, temp1 = diff_loss(model=model,
+        loss, t = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -113,9 +115,12 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            perturb_steps=args.num_steps,
                            beta=args.beta,
                            hess_threshold=args.hess_threshold,
+                           correct_rate=args.correct,
                            evalu= False)
-        hess.append(temp)
-        grad.append(temp1)
+        if t:
+            count += 1
+        #hess.append(temp)
+        #grad.append(temp1)
         loss.backward()
         optimizer.step()
         
@@ -125,11 +130,12 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
-    print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
-    print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
-       np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
-       min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
-    return np.mean(hess)
+    print('adv train count: {}'.format(count), flush=True, file=f)
+    #print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
+    #print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
+    #   np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
+    #   min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
+    #return np.mean(hess)
 def eval_train(model, device, train_loader):
     model.eval()
     train_loss = 0
@@ -192,6 +198,7 @@ def main():
     #model = torch.nn.parallel.DistributedDataParallel(model, find_unused_parameters=True)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
     hess_list = []
+    para_count = model_para_count(model)
     if args.continue_train != 0:
         start = args.continue_train
         length = args.continue_train_len
@@ -206,7 +213,7 @@ def main():
             hess_list.append(avg)
             if(len(hess_list) > 4):
                 hess_list.pop(0)
-            adjust_hess_thre(epoch, np.mean(hess_list))
+            #adjust_hess_thre(epoch, np.mean(hess_list))
             # evaluation on natural examples
             print('================================================================', flush=True, file=f)
             eval_train(model, device, train_loader)
@@ -219,17 +226,18 @@ def main():
                 torch.save(optimizer.state_dict(),
                         os.path.join(model_dir, 'opt-wideres-checkpoint_epoch{}.tar'.format(epoch)))
     else:
-        para_count = model_para_count(model)
+        
         print(para_count, flush=True, file=f)
         for epoch in range(1, args.epochs + 1):
             # adjust learning rate for SGD
             adjust_learning_rate(optimizer, epoch)
             # adversarial training
-            avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
-            hess_list.append(avg)
-            if(len(hess_list) > 4):
-                hess_list.pop(0)
-            adjust_hess_thre(epoch, np.mean(hess_list))
+            #avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
+            train(args, model, device, train_loader, optimizer, epoch, para_count)
+            #hess_list.append(avg)
+            #if(len(hess_list) > 4):
+            #    hess_list.pop(0)
+            #adjust_hess_thre(epoch, np.mean(hess_list))
             # evaluation on natural examples
             print('================================================================', flush=True, file=f)
             eval_train(model, device, train_loader)

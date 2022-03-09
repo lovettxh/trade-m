@@ -37,7 +37,7 @@ parser.add_argument('--target-model-path',
                     help='target model for black-box attack evaluation')
 parser.add_argument('--white-box-attack', default=True,
                     help='whether perform white-box attack')
-
+parser.add_argument('--model-num',default=0,type=int)
 args = parser.parse_args()
 
 
@@ -155,6 +155,8 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 def main():
     print(len(testset))
     #args.white_box_attack = False
+    if args.model_num != 0:
+        args.model_path = './model-cifar-wideResNet/model-wideres-epoch{}.pt'.format(str(args.model_num))
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
