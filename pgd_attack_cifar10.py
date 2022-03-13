@@ -37,7 +37,7 @@ parser.add_argument('--target-model-path',
                     help='target model for black-box attack evaluation')
 parser.add_argument('--white-box-attack', default=True,
                     help='whether perform white-box attack')
-parser.add_argument('--model-num',default=0,type=int)
+parser.add_argument('--num',default=0,type=int)
 args = parser.parse_args()
 
 
@@ -155,8 +155,8 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 def main():
     print(len(testset))
     #args.white_box_attack = False
-    if args.model_num != 0:
-        args.model_path = './model-cifar-wideResNet/model-wideres-epoch{}.pt'.format(str(args.model_num))
+    if args.num != 0:
+        args.model_path = './model-cifar-wideResNet/model-wideres-epoch{}.pt'.format(str(args.num))
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
@@ -171,7 +171,6 @@ def main():
         model_target.load_state_dict(torch.load(args.target_model_path))
         model_source = WideResNet().to(device)
         model_source.load_state_dict(torch.load(args.source_model_path))
-
         eval_adv_test_blackbox(model_target, model_source, device, test_loader)
 
 

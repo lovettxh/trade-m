@@ -10,7 +10,7 @@ from torchvision import datasets, transforms
 
 from models.net_mnist import *
 from models.small_cnn import *
-from trades import trades_loss, model_para_count
+from trades import trades_loss, model_para_count, diff_loss
 
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST TRADES Adversarial Training')
@@ -67,9 +67,8 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./mnist-output/output_hess_abs_beta7.txt","a")
+f=open("./mnist-output/test.txt","a")
 
-args.beta = 0.7
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -80,7 +79,16 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         optimizer.zero_grad()
 
         # calculate robust loss
-        loss, temp = trades_loss(model=model,
+        #loss, temp = trades_loss(model=model,
+        #                   x_natural=data,
+        #                   y=target,
+        #                   optimizer=optimizer,
+        #                   step_size=args.step_size,
+        #                   epsilon=args.epsilon,
+        #                   perturb_steps=args.num_steps,
+        #                   beta=args.beta,
+        #                   hess_threshold=args.hess_threshold)
+        loss, t, tt = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -88,8 +96,10 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
                            beta=args.beta,
-                           hess_threshold=args.hess_threshold)
-        hess.append(temp)
+                           hess_threshold=args.hess_threshold,
+                           evalu= False)
+        hess.append(torch.mean(t).item())
+        #hess.append(temp)
         loss.backward()
         optimizer.step()
 
@@ -98,11 +108,8 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
+    print('{}'.format(np.mean(hess)), flush=True, file=f)        
     print('================================================================', flush=True, file=f)
-    print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
-       np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 
-       min(hess)/para_count, max(hess)/para_count), flush=True, file=f)
-    return np.mean(hess)
 
 def eval_train(model, device, train_loader):
     model.eval()
@@ -172,8 +179,8 @@ def main():
         adjust_learning_rate(optimizer, epoch)
         
         # adversarial training
-        avg = train(args, model, device, train_loader, optimizer, epoch, para_count)
-        adjust_hess_thre(epoch, avg)
+        train(args, model, device, train_loader, optimizer, epoch, para_count)
+        
         # evaluation on natural examples
         print('================================================================', flush=True, file=f)
         eval_train(model, device, train_loader)

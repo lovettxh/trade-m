@@ -82,13 +82,13 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/output_diff85_beta2.txt","a")
-args.beta = 2
+f=open("./cifar10-output/test1.txt","a")
+args.beta = 6
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
-    hess = []
-    grad = []
+    true_prob = []
+    accur = []
     count = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
@@ -106,7 +106,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         #                    beta=args.beta,
         #                    hess_threshold=args.hess_threshold,
         #                    evalu= False)
-        loss, t = diff_loss(model=model,
+        loss, t, tt = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -117,8 +117,8 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            hess_threshold=args.hess_threshold,
                            correct_rate=args.correct,
                            evalu= False)
-        if t:
-            count += 1
+        true_prob.append(torch.mean(t).item())
+        accur.append(tt)
         #hess.append(temp)
         #grad.append(temp1)
         loss.backward()
@@ -130,6 +130,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
+    print('true_prob = {}, accur = {}'.format(np.mean(true_prob), np.mean(accur)), flush=True, file=f)  
     print('adv train count: {}'.format(count), flush=True, file=f)
     #print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
     #print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(

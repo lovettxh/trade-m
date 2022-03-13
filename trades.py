@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import torch.optim as optim
-
+import sys
 
 def squared_l2_norm(x):
     flattened = x.view(x.unsqueeze(0).shape[0], -1)
@@ -159,18 +159,28 @@ def diff_loss(model,
     # calculate robust loss
     logits = model(x_natural)
     loss_natural = F.cross_entropy(logits, y)
-    loss_robust = (1.0/batch_size) * criterion_ce(model(x_adv), y)
     pred = logits.max(1, keepdim=True)[1]
     correct = pred.eq(y.view_as(pred)).sum().item()
+    logits_adv = model(x_adv)
+    adv_probs = F.softmax(logits_adv, dim=1)
     #--------------------
     #h, g = hessian_cal(model, loss_robust)
     #--------------------
+    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+    loss_adv = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
+                                                     F.softmax(model(x_natural), dim=1))
     
-    if(correct >= batch_size * correct_rate):
-        loss = loss_natural + beta * loss_robust
-        return loss, True
-    else:
-        loss = loss_natural
-        return loss, False
+    nat_probs = F.softmax(logits, dim=1)
+    true_probs = torch.gather(nat_probs, 1, (y.unsqueeze(1)).long()).squeeze()
+    loss = loss_natural + beta * loss_robust * torch.mean(true_probs).item() + loss_adv * beta
+    return loss, true_probs, (correct / batch_size)
+    #if(correct >= batch_size * correct_rate):
+    #    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+    #    loss = loss_natural + beta * loss_robust
+    #    return loss, True
+    #else:
+    #    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+    #    loss = loss_natural + beta * loss_robust
+    #    return loss, False
     
     #return loss, h.item(), g.item()

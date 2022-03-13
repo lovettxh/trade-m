@@ -1,4 +1,5 @@
 from __future__ import print_function
+from autoattack import AutoAttack
 import os
 import argparse
 import torch
@@ -10,7 +11,6 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from models.small_cnn import *
 from models.net_mnist import *
-from autoattack import AutoAttack
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST PGD Attack Evaluation')
 parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
@@ -39,6 +39,7 @@ parser.add_argument('--white-box-attack', default=True,
                     help='whether perform white-box attack')
 parser.add_argument('--log-path',default='./log_file.txt')
 parser.add_argument('--auto-attack',default=False)
+parser.add_argument('--num',default=0, type=int)
 args = parser.parse_args()
 
 # settings
@@ -176,6 +177,8 @@ def main():
     print(len(test_loader.dataset))
     # args.white_box_attack = False
     args.auto_attack = True
+    if args.num != 0:
+        args.model_path = './model-mnist-smallCNN/model-nn-epoch{}.pt'.format(str(args.num))
     if args.auto_attack:
         print('auto attack')
         model = SmallCNN().to(device)
