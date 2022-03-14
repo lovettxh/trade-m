@@ -18,7 +18,7 @@ parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
                     help='input batch size for testing (default: 128)')
-parser.add_argument('--epochs', type=int, default=85, metavar='N',
+parser.add_argument('--epochs', type=int, default=80, metavar='N',
                     help='number of epochs to train')
 parser.add_argument('--weight-decay', '--wd', default=2e-4,
                     type=float, metavar='W')
@@ -35,6 +35,10 @@ parser.add_argument('--num-steps', default=10,
 parser.add_argument('--step-size', default=0.007,
                     help='perturb step size')
 parser.add_argument('--beta', default=6.0,
+                    help='regularization, i.e., 1/lambda in TRADES')
+parser.add_argument('--beta1', default=6.0,
+                    help='regularization, i.e., 1/lambda in TRADES')
+parser.add_argument('--beta2', default=5.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
@@ -82,7 +86,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/test1.txt","a")
+f=open("./cifar10-output/test2.txt","a")
 args.beta = 6
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
@@ -113,7 +117,8 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            step_size=args.step_size,
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
-                           beta=args.beta,
+                           beta1=args.beta1,
+                           beta2=args.beta2,
                            hess_threshold=args.hess_threshold,
                            correct_rate=args.correct,
                            evalu= False)

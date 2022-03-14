@@ -131,7 +131,8 @@ def diff_loss(model,
                 step_size=0.003,
                 epsilon=0.031,
                 perturb_steps=10,
-                beta=1.0,
+                beta1=1.0,
+                beta2=1.0,
                 hess_threshold=75000,
                 correct_rate=0.8,
                 evalu=False):
@@ -172,7 +173,7 @@ def diff_loss(model,
     
     nat_probs = F.softmax(logits, dim=1)
     true_probs = torch.gather(nat_probs, 1, (y.unsqueeze(1)).long()).squeeze()
-    loss = loss_natural + beta * loss_robust * torch.mean(true_probs).item() + loss_adv * beta
+    loss = loss_natural + beta2 * loss_robust * torch.mean(true_probs).item() + loss_adv * beta1
     return loss, true_probs, (correct / batch_size)
     #if(correct >= batch_size * correct_rate):
     #    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
