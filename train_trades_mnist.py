@@ -67,7 +67,7 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./mnist-output/test.txt","a")
+f=open("./mnist-output/test1.txt","a")
 
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
@@ -97,7 +97,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            perturb_steps=args.num_steps,
                            beta=args.beta,
                            hess_threshold=args.hess_threshold,
-                           evalu= False)
+                           flag= False)
         hess.append(torch.mean(t).item())
         #hess.append(temp)
         loss.backward()

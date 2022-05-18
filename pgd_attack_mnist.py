@@ -11,7 +11,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from models.small_cnn import *
 from models.net_mnist import *
-
+from project_test.autotest import autotest
 parser = argparse.ArgumentParser(description='PyTorch MNIST PGD Attack Evaluation')
 parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
                     help='input batch size for testing (default: 200)')
@@ -114,10 +114,10 @@ def _pgd_blackbox(model_target,
     print('err pgd black-box: ', err_pgd)
     return err, err_pgd
 
-def eval_avd_test_autoattack(model, device, test_loader):
+def eval_avd_test_autoattack(model, device, test_loader, step_size = args.step_size):
     model.eval()
     adversary = AutoAttack(model, norm='Linf', eps=args.epsilon, log_path=args.log_path,version='standard')
-    
+    at = autotest(model = model, device = device)
     robust_err_total = 0
     natural_err_total = 0
     
@@ -126,11 +126,10 @@ def eval_avd_test_autoattack(model, device, test_loader):
     l = [y for (x, y) in test_loader]
     y_test = torch.cat(l, 0)
     with torch.no_grad():
-        
-        adv_complete = adversary.run_standard_evaluation(x_test[:10000], y_test[:10000],
-          bs=args.test_batch_size)
+        #at.run_test(x_test[:10000].to(device), y_test[:10000].to(device), args.test_batch_size)
+        at.run_test(test_loader, x_test[:10000].to(device), y_test[:10000].to(device),'adv',step_size,args.epsilon, args.test_batch_size)
             
-        torch.save({'adv_complete': adv_complete})
+        #torch.save({'adv_complete': adv_complete})
 
 
 

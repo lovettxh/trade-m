@@ -9,8 +9,8 @@ from torch.autograd import Variable
 import torch.optim as optim
 from torchvision import datasets, transforms
 from models.wideresnet_update import *
+#from models.wideresnet import *
 from models.resnet import *
-
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR PGD Attack Evaluation')
 parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
@@ -38,6 +38,8 @@ parser.add_argument('--target-model-path',
 parser.add_argument('--white-box-attack', default=True,
                     help='whether perform white-box attack')
 parser.add_argument('--num',default=0,type=int)
+parser.add_argument('--auto-attack',default=False)
+parser.add_argument('--log-path',default='./log_file.txt')
 args = parser.parse_args()
 
 
@@ -151,18 +153,43 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
     print('natural_err_total: ', natural_err_total)
     print('robust_err_total: ', robust_err_total)
 
+def eval_avd_test_autoattack(model, device, test_loader):
+    model.eval()
+    adversary = AutoAttack(model, norm='Linf', eps=args.epsilon, log_path=args.log_path,version='standard')
+    at = autotest(model = model, device = device)
+    # an untargeted adversary
+
+    robust_err_total = 0
+    natural_err_total = 0
+    
+    l = [x for (x, y) in test_loader]
+    x_test = torch.cat(l, 0)
+    l = [y for (x, y) in test_loader]
+    y_test = torch.cat(l, 0)
+    
+    with torch.no_grad():
+        at.run_test(test_loader, x_test[:10000].to(device), y_test[:10000].to(device), 'adv',0.003,0.031, args.test_batch_size)
+        # adv_complete = adversary.run_standard_evaluation(x_test[:10000], y_test[:10000],
+        #   bs=args.test_batch_size)
+            
+        #torch.save({'adv_complete': adv_complete})
 
 def main():
     print(len(testset))
     #args.white_box_attack = False
     if args.num != 0:
         args.model_path = './model-cifar-wideResNet/model-wideres-epoch{}.pt'.format(str(args.num))
-    if args.white_box_attack:
+    #args.auto_attack = True
+    if args.auto_attack:
+        print('auto attack')
+        model = WideResNet().to(device)
+        model.load_state_dict(torch.load(args.model_path))
+        eval_avd_test_autoattack(model, device, test_loader) 
+    elif args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
         model = WideResNet().to(device)
         model.load_state_dict(torch.load(args.model_path))
-
         eval_adv_test_whitebox(model, device, test_loader)
     else:
         # black-box attack

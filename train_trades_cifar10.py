@@ -13,12 +13,14 @@ from models.wideresnet_update import *
 from models.resnet import *
 from trades import trades_loss, model_para_count, diff_loss
 
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
                     help='input batch size for training (default: 128)')
 parser.add_argument('--test-batch-size', type=int, default=128, metavar='N',
                     help='input batch size for testing (default: 128)')
-parser.add_argument('--epochs', type=int, default=80, metavar='N',
+parser.add_argument('--epochs', type=int, default=100, metavar='N',
                     help='number of epochs to train')
 parser.add_argument('--weight-decay', '--wd', default=2e-4,
                     type=float, metavar='W')
@@ -37,8 +39,6 @@ parser.add_argument('--step-size', default=0.007,
 parser.add_argument('--beta', default=6.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--beta1', default=6.0,
-                    help='regularization, i.e., 1/lambda in TRADES')
-parser.add_argument('--beta2', default=5.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--seed', type=int, default=1, metavar='S',
                     help='random seed (default: 1)')
@@ -68,11 +68,9 @@ device = torch.device("cuda" if use_cuda else "cpu")
 kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 torch.backends.cudnn.benchmark = True
-#torch.cuda.set_device(args.local_rank)
-#torch.distributed.init_process_group(backend='nccl')
-args.batch_size = 128
-args.test_batch_size = 128
+
 args.correct = 0.85
+
 # setup data loader
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
@@ -87,13 +85,15 @@ train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size,
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
 f=open("./cifar10-output/test2.txt","a")
-args.beta = 6
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
     true_prob = []
     accur = []
     count = 0
+    loss_nat = 0
+    loss_rob = 0
+    loss_adv = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
@@ -110,18 +110,21 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         #                    beta=args.beta,
         #                    hess_threshold=args.hess_threshold,
         #                    evalu= False)
-        loss, t, tt = diff_loss(model=model,
+
+        loss, t, tt, nat, rob, adv = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
                            step_size=args.step_size,
                            epsilon=args.epsilon,
                            perturb_steps=args.num_steps,
-                           beta1=args.beta1,
-                           beta2=args.beta2,
+                           beta=args.beta,
                            hess_threshold=args.hess_threshold,
                            correct_rate=args.correct,
-                           evalu= False)
+                           flag= False)
+        loss_nat += nat.item()
+        loss_rob += rob.item()
+        loss_adv += adv.item()
         true_prob.append(torch.mean(t).item())
         accur.append(tt)
         #hess.append(temp)
@@ -135,6 +138,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
     print('================================================================', flush=True, file=f)
+    print('loss nat = {}, loss rob = {}, loss adv = {}'.format(loss_nat, loss_rob, loss_adv), flush=True, file=f)  
     print('true_prob = {}, accur = {}'.format(np.mean(true_prob), np.mean(accur)), flush=True, file=f)  
     print('adv train count: {}'.format(count), flush=True, file=f)
     #print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
@@ -183,7 +187,7 @@ def eval_test(model, device, test_loader):
 def adjust_learning_rate(optimizer, epoch):
     """decrease the learning rate"""
     lr = args.lr
-    if epoch >= 75:
+    if epoch >= 70:
         lr = args.lr * 0.1
     if epoch >= 90:
         lr = args.lr * 0.01
