@@ -1,5 +1,5 @@
 from __future__ import print_function
-from autoattack import AutoAttack
+
 import os
 import argparse
 import torch
@@ -11,7 +11,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from models.small_cnn import *
 from models.net_mnist import *
-from project_test.autotest import autotest
+
 parser = argparse.ArgumentParser(description='PyTorch MNIST PGD Attack Evaluation')
 parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
                     help='input batch size for testing (default: 200)')
@@ -114,24 +114,6 @@ def _pgd_blackbox(model_target,
     print('err pgd black-box: ', err_pgd)
     return err, err_pgd
 
-def eval_avd_test_autoattack(model, device, test_loader, step_size = args.step_size):
-    model.eval()
-    adversary = AutoAttack(model, norm='Linf', eps=args.epsilon, log_path=args.log_path,version='standard')
-    at = autotest(model = model, device = device)
-    robust_err_total = 0
-    natural_err_total = 0
-    
-    l = [x for (x, y) in test_loader]
-    x_test = torch.cat(l, 0)
-    l = [y for (x, y) in test_loader]
-    y_test = torch.cat(l, 0)
-    with torch.no_grad():
-        #at.run_test(x_test[:10000].to(device), y_test[:10000].to(device), args.test_batch_size)
-        at.run_test(test_loader, x_test[:10000].to(device), y_test[:10000].to(device),'adv',step_size,args.epsilon, args.test_batch_size)
-            
-        #torch.save({'adv_complete': adv_complete})
-
-
 
 def eval_adv_test_whitebox(model, device, test_loader):
     """
@@ -175,14 +157,14 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
 def main():
     print(len(test_loader.dataset))
     # args.white_box_attack = False
-    args.auto_attack = True
+    # args.auto_attack = True
     if args.num != 0:
         args.model_path = './model-mnist-smallCNN/model-nn-epoch{}.pt'.format(str(args.num))
     if args.auto_attack:
         print('auto attack')
         model = SmallCNN().to(device)
         model.load_state_dict(torch.load(args.model_path))
-        eval_avd_test_autoattack(model,device, test_loader)
+        # eval_avd_test_autoattack(model,device, test_loader)
     elif args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')

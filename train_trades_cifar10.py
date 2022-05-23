@@ -9,11 +9,13 @@ import torchvision
 import torch.optim as optim
 from torchvision import datasets, transforms
 import numpy as np
+import wandb
 from models.wideresnet_update import *
 from models.resnet import *
 from trades import trades_loss, model_para_count, diff_loss
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+wandb.init(project="test", entity="lovettxh", name="cifar-")
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -36,7 +38,7 @@ parser.add_argument('--num-steps', default=10,
                     help='perturb number of steps')
 parser.add_argument('--step-size', default=0.007,
                     help='perturb step size')
-parser.add_argument('--beta', default=6.0,
+parser.add_argument('--beta', default=4.0,
                     help='regularization, i.e., 1/lambda in TRADES')
 parser.add_argument('--beta1', default=6.0,
                     help='regularization, i.e., 1/lambda in TRADES')
@@ -57,6 +59,13 @@ parser.add_argument('--continue-train',default=0, type=int)
 parser.add_argument('--continue-train-len',default=0, type=int)
 parser.add_argument('--correct',default=0.8, type=float)
 args = parser.parse_args()
+
+wandb.config = {
+  "learning_rate": args.lr,
+  "epochs": args.epochs,
+  "batch_size": args.batch_size,
+  "beta": args.beta
+}
 
 # settings
 model_dir = args.model_dir
@@ -84,7 +93,7 @@ trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=Tru
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
 testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/test2.txt","a")
+f=open("./cifar10-output/test1.txt","a")
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -127,8 +136,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         loss_adv += adv.item()
         true_prob.append(torch.mean(t).item())
         accur.append(tt)
-        #hess.append(temp)
-        #grad.append(temp1)
+
         loss.backward()
         optimizer.step()
         
@@ -137,10 +145,10 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
+    wandb.log({"trade loss": loss_adv})   
     print('================================================================', flush=True, file=f)
     print('loss nat = {}, loss rob = {}, loss adv = {}'.format(loss_nat, loss_rob, loss_adv), flush=True, file=f)  
     print('true_prob = {}, accur = {}'.format(np.mean(true_prob), np.mean(accur)), flush=True, file=f)  
-    print('adv train count: {}'.format(count), flush=True, file=f)
     #print('Avg Gradient: {}'.format(np.mean(grad)), flush=True, file=f)
     #print('Avg Hessian: {}\n std: {} \n median: {} \n min: {} \n max: {}'.format(
     #   np.mean(hess)/para_count, np.std(hess)/para_count, np.median(hess)/para_count, 

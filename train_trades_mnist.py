@@ -6,12 +6,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
+import wandb
 from torchvision import datasets, transforms
 
 from models.net_mnist import *
 from models.small_cnn import *
 from trades import trades_loss, model_para_count, diff_loss
 
+os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+wandb.init(project="test", entity="lovettxh", name="mnist-")
 
 parser = argparse.ArgumentParser(description='PyTorch MNIST TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -47,6 +50,13 @@ parser.add_argument('--hess-threshold', default=75000,
 parser.add_argument('--start-epoch', default=15)
 parser.add_argument('--end-epoch', default=75)
 args = parser.parse_args()
+wandb.config = {
+  "learning_rate": args.lr,
+  "epochs": args.epochs,
+  "batch_size": args.batch_size,
+  "beta": args.beta
+}
+torch.autograd.set_detect_anomaly(True)
 
 # settings
 model_dir = args.model_dir
@@ -67,12 +77,16 @@ test_loader = torch.utils.data.DataLoader(
     datasets.MNIST('../data', train=False,
                    transform=transforms.ToTensor()),
                    batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./mnist-output/test1.txt","a")
+f=open("./mnist-output/test_wandb.txt","a")
 
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
-    hess = []
+    true_prob = []
+    accur = []
+    loss_nat = 0
+    loss_rob = 0
+    loss_adv = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
 
@@ -88,7 +102,7 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
         #                   perturb_steps=args.num_steps,
         #                   beta=args.beta,
         #                   hess_threshold=args.hess_threshold)
-        loss, t, tt = diff_loss(model=model,
+        loss, true_probs, correct, nat, rob, adv = diff_loss(model=model,
                            x_natural=data,
                            y=target,
                            optimizer=optimizer,
@@ -98,8 +112,13 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
                            beta=args.beta,
                            hess_threshold=args.hess_threshold,
                            flag= False)
-        hess.append(torch.mean(t).item())
         #hess.append(temp)
+        loss_nat += nat.item()
+        loss_rob += rob.item()
+        loss_adv += adv.item()
+        true_prob.append(torch.mean(true_probs).item())
+        accur.append(correct)
+
         loss.backward()
         optimizer.step()
 
@@ -108,8 +127,10 @@ def train(args, model, device, train_loader, optimizer, epoch, para_count):
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()), flush=True, file=f)
-    print('{}'.format(np.mean(hess)), flush=True, file=f)        
+    wandb.log({"trade loss": loss_adv})      
     print('================================================================', flush=True, file=f)
+    print('loss nat = {}, loss rob = {}, loss adv = {}'.format(loss_nat, loss_rob, loss_adv), flush=True, file=f)  
+    print('true_prob = {}, accur = {}'.format(np.mean(true_prob), np.mean(accur)), flush=True, file=f) 
 
 def eval_train(model, device, train_loader):
     model.eval()
