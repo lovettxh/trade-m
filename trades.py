@@ -180,15 +180,16 @@ def diff_loss(model,
     loss_natural = F.cross_entropy(logits, y)
     logits_adv = model(x_adv)
     adv_probs = F.softmax(logits_adv, dim=1)
-    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+    # loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+    loss_robust = 0
     loss_adv = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
                                                      F.softmax(model(x_natural), dim=1))
     nat_probs = F.softmax(logits, dim=1)
     true_probs = torch.gather(nat_probs, 1, (y.unsqueeze(1)).long()).squeeze()
     
-    loss = loss_natural + loss_robust * loss_adv * beta
+    # loss = loss_natural + loss_robust * loss_adv * beta
 
-    # loss = loss_natural + loss_robust * beta
+    loss = loss_natural + loss_adv * beta
     #print(loss_adv)
     return loss, true_probs, correct, loss_natural, loss_robust, loss_adv
     #if(correct >= batch_size * correct_rate):
