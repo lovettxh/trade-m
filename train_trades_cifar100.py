@@ -16,7 +16,7 @@ from models.resnet import *
 from trades import trades_loss, model_para_count, diff_loss
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "1"
-wandb.init(project="trade-loss_monitor", entity="lovettxh", name="cifar-trade-onestop")
+wandb.init(project="trade-loss_monitor", entity="lovettxh", name="cifar100-trade")
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',
@@ -78,7 +78,6 @@ kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
 
 torch.backends.cudnn.benchmark = True
 
-args.correct = 0.85
 
 # setup data loader
 transform_train = transforms.Compose([
@@ -89,11 +88,11 @@ transform_train = transforms.Compose([
 transform_test = transforms.Compose([
     transforms.ToTensor(),
 ])
-trainset = torchvision.datasets.CIFAR10(root='../data', train=True, download=True, transform=transform_train)
+trainset = torchvision.datasets.CIFAR100(root='../data', train=True, download=True, transform=transform_train)
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, **kwargs)
-testset = torchvision.datasets.CIFAR10(root='../data', train=False, download=True, transform=transform_test)
+testset = torchvision.datasets.CIFAR100(root='../data', train=False, download=True, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, **kwargs)
-f=open("./cifar10-output/temp.txt","a")
+f=open("./cifar100-output/temp.txt","a")
 
 def train(args, model, device, train_loader, optimizer, epoch, para_count):
     model.train()
@@ -204,7 +203,6 @@ def _pgd_whitebox(model,
     err_pgd = (out_adv.data.max(1)[1] == y.data).float().sum()
     trade_loss = nn.KLDivLoss(size_average=False)(F.log_softmax(out_adv, dim=1),
                                                      F.softmax(out, dim=1))
-
     return err_pgd, trade_loss
 
 def eval_adv_test_whitebox(model, device, test_loader,epoch, train=True):
@@ -234,18 +232,12 @@ def adjust_learning_rate(optimizer, epoch):
     lr = args.lr
     if epoch >= 70:
         lr = args.lr * 0.1
-    # if epoch >= 90:
-    #     lr = args.lr * 0.01
-    # if epoch >= 100:
-    #     lr = args.lr * 0.001
+    if epoch >= 90:
+        lr = args.lr * 0.01
+    if epoch >= 100:
+        lr = args.lr * 0.001
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-
-def adjust_hess_thre(epoch, avg_hess):
-    if epoch >= args.start_epoch:
-        args.hess_threshold = avg_hess * 1.5
-    if epoch >= args.end_epoch:
-        args.hess_threshold = avg_hess * 2
 
 def main():
     # init model, ResNet18() can be also used here for training
@@ -268,7 +260,7 @@ def main():
             hess_list.append(avg)
             if(len(hess_list) > 4):
                 hess_list.pop(0)
-            #adjust_hess_thre(epoch, np.mean(hess_list))
+            # adjust_hess_thre(epoch, np.mean(hess_list))
             # evaluation on natural examples
             print('================================================================', flush=True, file=f)
             eval_train(model, device, train_loader)
@@ -292,7 +284,7 @@ def main():
             #hess_list.append(avg)
             #if(len(hess_list) > 4):
             #    hess_list.pop(0)
-            #adjust_hess_thre(epoch, np.mean(hess_list))
+            # adjust_hess_thre(epoch, np.mean(hess_list))
             # evaluation on natural examples
             print('================================================================', flush=True, file=f)
             eval_train(model, device, train_loader, epoch)
