@@ -26,9 +26,6 @@ def hessian_cal(model, loss):
     grad = torch.sum(torch.stack([torch.dot(torch.flatten(x),torch.flatten(y)) for x,y in zip(g1_,temp)]))
     return s2, grad 
 '''
-
-def model_para_count(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
     
 def trades_loss(model,
                 x_natural,
@@ -135,63 +132,50 @@ def diff_loss(model,
                 epsilon=0.031,
                 perturb_steps=10,
                 beta=1.0,
-                hess_threshold=75000,
-                correct_rate=0.8,
-                flag=False):
+                adversarial=False):
+
     criterion_kl = nn.KLDivLoss(size_average=False)
-    criterion_ce = nn.CrossEntropyLoss(size_average=False)
-    model.eval()
-    batch_size = len(x_natural)
-
-    # logits = model(x_natural)
-    # pred = logits.max(1, keepdim=True)[1]
-    # correct = pred.eq(y.view_as(pred)).sum().item() / batch_size
-
-    # correct_ = correct + 0.2
-    # if correct_ > 1.0:
-    #     correct_ = 1.0
-    # epsilon = epsilon * correct_
+    # criterion_ce = nn.CrossEntropyLoss(size_average=False)
     
-    x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
-    
-    for _ in range(perturb_steps):
-        # --------------
-        # PGD
-        x_adv.requires_grad_()
-        with torch.enable_grad():
-            #loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1),
-             #                       F.softmax(model(x_natural), dim=1))
-            loss_ce = criterion_ce(model(x_adv), y)
-        grad = torch.autograd.grad(loss_ce, [x_adv])[0]
-        x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
-        x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
-        x_adv = torch.clamp(x_adv, 0.0, 1.0)
+    if adversarial:
+        model.eval()
+        batch_size = len(x_natural)
+        x_adv = x_natural.detach() + 0.001 * torch.randn(x_natural.shape).cuda().detach()
+        for _ in range(perturb_steps):
+            # --------------
+            # PGD
+            x_adv.requires_grad_()
+            with torch.enable_grad():
+                loss_kl = criterion_kl(F.log_softmax(model(x_adv), dim=1),
+                                      F.softmax(model(x_natural), dim=1))
+                # loss_ce = criterion_ce(model(x_adv), y)
+            grad = torch.autograd.grad(loss_kl, [x_adv])[0]
+            x_adv = x_adv.detach() + step_size * torch.sign(grad.detach())
+            x_adv = torch.min(torch.max(x_adv, x_natural - epsilon), x_natural + epsilon)
+            x_adv = torch.clamp(x_adv, 0.0, 1.0)
 
-    model.train()
-    x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
-    # zero gradient
-    optimizer.zero_grad()
-    # calculate robust loss
-    logits = model(x_natural)
+        model.train()
+        x_adv = Variable(torch.clamp(x_adv, 0.0, 1.0), requires_grad=False)
+        # zero gradient
+        optimizer.zero_grad()
+        # calculate robust loss
+        logits = model(x_natural)
 
-    pred = logits.max(1, keepdim=True)[1]
-    correct = pred.eq(y.view_as(pred)).sum().item() / batch_size
-
-    loss_natural = F.cross_entropy(logits, y)
-    logits_adv = model(x_adv)
-    adv_probs = F.softmax(logits_adv, dim=1)
-    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
-    # loss_robust = 0
-    loss_adv = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
-                                                     F.softmax(model(x_natural), dim=1))
-    nat_probs = F.softmax(logits, dim=1)
-    true_probs = torch.gather(nat_probs, 1, (y.unsqueeze(1)).long()).squeeze()
-    
-    # loss = loss_natural + loss_robust * loss_adv * beta
-
-    loss = loss_natural + loss_adv * beta
-    #print(loss_adv)
-    return loss, true_probs, correct, loss_natural, loss_robust, loss_adv
+        loss_natural = F.cross_entropy(logits, y)
+        logits_adv = model(x_adv)
+        # loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
+        # loss_robust = 0
+        loss_adv = (1.0 / batch_size) * criterion_kl(F.log_softmax(model(x_adv), dim=1),
+                                                        F.softmax(model(x_natural), dim=1))
+        
+        # loss = loss_natural + loss_robust * loss_adv * beta
+        loss = loss_natural + loss_adv * beta
+        return loss
+    else:
+        optimizer.zero_grad()
+        logits = model(x_natural)
+        loss = F.cross_entropy(logits, y)
+        return loss
     #if(correct >= batch_size * correct_rate):
     #    loss_robust = (1.0/batch_size) * criterion_ce(logits_adv, y)
     #    loss = loss_natural + beta * loss_robust

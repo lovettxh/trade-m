@@ -16,7 +16,7 @@ from models.resnet import *
 from trades import trades_loss, model_para_count, diff_loss
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "1"
-wandb.init(project="trade-loss_monitor", entity="lovettxh", name="cifar100-trade")
+wandb.init(project="trade-loss_monitor", entity="lovettxh", name="cifar100-trade-onestop")
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR TRADES Adversarial Training')
 parser.add_argument('--batch-size', type=int, default=128, metavar='N',

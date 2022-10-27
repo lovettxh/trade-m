@@ -11,9 +11,10 @@ from torchvision import datasets, transforms
 from models.wideresnet_update import *
 #from models.wideresnet import *
 from models.resnet import *
+from bpda_eot import BPDA_EOT_Attack
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR PGD Attack Evaluation')
-parser.add_argument('--test-batch-size', type=int, default=200, metavar='N',
+parser.add_argument('--test-batch-size', type=int, default=50, metavar='N',
                     help='input batch size for testing (default: 200)')
 parser.add_argument('--no-cuda', action='store_true', default=False,
                     help='disables CUDA training')
@@ -153,18 +154,31 @@ def eval_adv_test_blackbox(model_target, model_source, device, test_loader):
     print('natural_err_total: ', natural_err_total)
     print('robust_err_total: ', robust_err_total)
 
+def eval_eot(model):
+    model.eval()
+    eot = BPDA_EOT_Attack(model)
+    robust_err_total = 0
+    for data, target in test_loader:
+        data, target = data.to(device), target.to(device)
+        X, y = Variable(data, requires_grad=True), Variable(target)
+        x_adv, _ = eot.perturb(X, y)
+        logit = model(x_adv.to(device))
+        robust_err_total += (logit.data.max(1)[1].data!=target.data).float().sum()
+    print('robust_err_total: ', robust_err_total)
+
 def main():
     print(len(testset))
     #args.white_box_attack = False
     if args.num != 0:
-        args.model_path = './model-cifar-wideResNet/model-wideres-epoch{}.pt'.format(str(args.num))
+        args.model_path = './model-cifar-wideResNet/wideres-adv-epoch{}.pt'.format(str(args.num))
         
     if args.white_box_attack:
         # white-box attack
         print('pgd white-box attack')
         model = WideResNet().to(device)
         model.load_state_dict(torch.load(args.model_path))
-        eval_adv_test_whitebox(model, device, test_loader)
+        # eval_adv_test_whitebox(model, device, test_loader)
+        eval_eot(model)
     else:
         # black-box attack
         print('pgd black-box attack')
